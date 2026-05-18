@@ -254,7 +254,6 @@ new p5(function (p) {
     el.style.cssText = [
       'position:fixed',
       'top:20%',
-      'transform:translate(-50%,-50%)',
       'font-family:"MyFont",sans-serif',
       'font-size:clamp(72px,14vw,160px)',
       'letter-spacing:0.12em',
@@ -775,41 +774,97 @@ new p5(function (p) {
     return d < (28 + headSize * 0.5);
   };
 
-  UFO.prototype.draw = function () {
-    var x = this.pos.x, y = this.pos.y;
-    p.push();
-    p.translate(x, y);
+    UFO.prototype.draw = function () {
+  var x = this.pos.x, y = this.pos.y;
+  p.push();
+  p.translate(x, y);
 
-    var numSpikes = 18;
-    var innerR = 25;
-    var outerR = 28;
+  var outerR = 22;
+  var innerR = 22 * (1 - 30 / 100);
+  var spikes = 3;
+  var pulse = 0.6 + 0.4 * Math.sin(p.frameCount * 0.0560 + this.wobbleOffset);
 
-    p.noStroke();
-    p.fill(224, 119, 238, 22);
-    p.circle(0, 0, (outerR + 13) * 2);
-    p.fill(224, 119, 238, 44);
-    p.circle(0, 0, (outerR + 5) * 2);
+  p.noStroke();
+  p.fill(235, 0, 94, 20);
+  p.circle(0, 0, (outerR + 9 + 18) * 2);
+  p.fill(235, 0, 94, 38);
+  p.circle(0, 0, (outerR + 9) * 2);
 
-    p.fill(5, 132, 212);
-    p.stroke(255, 255, 255, 160);
-    p.strokeWeight(0.5);
-    p.beginShape();
-    for (var i = 0; i < numSpikes; i++) {
-      var outerAngle = this.lightAngle + (i / numSpikes) * p.TWO_PI;
-      var innerAngle = this.lightAngle + ((i + 0.5) / numSpikes) * p.TWO_PI;
-      p.vertex(Math.cos(outerAngle) * outerR, Math.sin(outerAngle) * outerR);
-      p.vertex(Math.cos(innerAngle) * innerR, Math.sin(innerAngle) * innerR);
-    }
-    p.endShape(p.CLOSE);
+  p.push();
+  p.rotate(this.lightAngle * 0.0180 / 0.0180 * 0.4);
+  p.stroke(235, 0, 94, 150);
+  p.strokeWeight(1);
+  p.noFill();
+  p.beginShape();
+  for (var i = 0; i < 12; i++) {
+    var a = (i / 12) * p.TWO_PI;
+    var r = (i % 2 === 0) ? 36 : 36 * 0.42;
+    p.vertex(Math.cos(a) * r, Math.sin(a) * r);
+  }
+  p.endShape(p.CLOSE);
+  p.strokeWeight(1.5);
+  p.stroke(235, 0, 94, 230);
+  for (var i = 0; i < 4; i++) {
+    var a = (i / 4) * p.TWO_PI;
+    p.line(Math.cos(a)*(36+2), Math.sin(a)*(36+2), Math.cos(a)*(36+12), Math.sin(a)*(36+12));
+  }
+  p.strokeWeight(0.9);
+  p.stroke(235, 0, 94, 150);
+  for (var i = 0; i < 4; i++) {
+    var a = ((i+0.5)/4)*p.TWO_PI;
+    p.line(Math.cos(a)*(26), Math.sin(a)*(26), Math.cos(a)*(26+9), Math.sin(a)*(26+9));
+  }
+  p.pop();
 
-    p.noStroke();
-    p.fill(89, 201, 188);
-    p.circle(0, 0, innerR * 2);
-    p.fill(182, 236, 162, 190);
-    p.circle(-4, -5, 7);
+  p.push();
+  p.rotate(-this.lightAngle);
+  p.fill(127, 5, 5);
+  p.stroke(28, 3, 3);
+  p.strokeWeight(1.4);
+  p.beginShape();
+  for (var i = 0; i < spikes * 2; i++) {
+    var a = (i / (spikes * 2)) * p.TWO_PI - p.HALF_PI;
+    var r = (i % 2 === 0) ? outerR : innerR;
+    p.vertex(Math.cos(a) * r, Math.sin(a) * r);
+  }
+  p.endShape(p.CLOSE);
 
-    p.pop();
-  };
+  p.stroke(255, 0, 187);
+  p.strokeWeight(1.6);
+  p.line(-10, 0, 10, 0);
+  p.line(0, -10, 0, 10);
+
+  p.strokeWeight(1.1);
+  p.line(-11, -11, 11, 11);
+  p.line(11, -11, -11, 11);
+
+  p.noFill();
+  p.strokeWeight(1);
+  p.beginShape();
+  p.vertex(0, -16); p.vertex(16, 0);
+  p.vertex(0, 16); p.vertex(-16, 0);
+  p.endShape(p.CLOSE);
+
+  p.stroke(28, 3, 3);
+  p.strokeWeight(1.4);
+  var br = outerR * 0.75, bk = 7;
+  p.beginShape(); p.vertex(-br, -(br-bk)); p.vertex(-br, -br); p.vertex(-(br-bk), -br); p.endShape();
+  p.beginShape(); p.vertex(br-bk, -br); p.vertex(br, -br); p.vertex(br, -(br-bk)); p.endShape();
+  p.beginShape(); p.vertex(br, br-bk); p.vertex(br, br); p.vertex(br-bk, br); p.endShape();
+  p.beginShape(); p.vertex(-(br-bk), br); p.vertex(-br, br); p.vertex(-br, br-bk); p.endShape();
+  p.pop();
+
+  p.noStroke();
+  p.fill(165, 67, 177, 255 * pulse);
+  p.beginShape();
+  p.vertex(0, -9); p.vertex(9, 0);
+  p.vertex(0, 9); p.vertex(-9, 0);
+  p.endShape(p.CLOSE);
+  p.fill(255, 245, 220, 220 * pulse);
+  p.circle(0, 0, 6);
+
+  p.pop();
+};
 
   // ─── CHAPTER END UI ──────────────────────────────────
 
@@ -1187,36 +1242,8 @@ new p5(function (p) {
         el.style.cssText = 'position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;z-index:9999;cursor:none;';
         el.innerHTML =
           '<div style="font-family:\'Space Mono\',monospace;font-size:clamp(14px,2.5vw,22px);letter-spacing:0.4em;color:rgba(0, 255, 149, 0.81);text-transform:uppercase;">transmission complete</div>' +
-          '<div style="font-family:\'Space Mono\',monospace;font-size:clamp(9px,1.2vw,11px);letter-spacing:0.3em;color:rgba(170, 0, 255, 0.4);text-transform:uppercase;animation:pulseOpacity 1.8s ease-in-out infinite;">click to return</div>';
         document.body.appendChild(el);
 
-        el.addEventListener('click', function () {
-          el.style.transition = 'opacity 0.6s ease';
-          el.style.opacity = '0';
-          setTimeout(function () {
-            if (el.parentNode) el.parentNode.removeChild(el);
-            window.foods = [];
-            window.Chapter1generated = false;
-            window.Chapter2generated = false;
-            window.Chapter3generated = false;
-            decisionActive = false;
-            decisionYesLeft = 0;
-            decisionNoLeft = 0;
-            theEndDots = [];
-            bullets = [];
-            theEndCleared = false;
-            resetSnake();
-            snake.speed = 2.5;
-            var ui = document.getElementById('ui');
-            var welcome = document.getElementById('welcome');
-            if (ui) { ui.style.display = ''; ui.style.opacity = '1'; ui.style.pointerEvents = ''; }
-            if (welcome) { welcome.classList.remove('show'); welcome.style.display = ''; welcome.style.zIndex = ''; }
-            window.gameState = 'intro';
-            showIntroTitle();
-            generateRandomFood(150);
-            spawnIntroButtonDots();
-          }, 600);
-        });
       }, 200);
     }
   }
