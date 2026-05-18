@@ -67,8 +67,10 @@ new p5(function (p) {
     failureShown = false;
     ufos = [];
 
-    generateTextPoints("THE VOID", 0);
+    // Show "THE VOID" as Asimovian font HTML overlay on intro
+    showIntroTitle();
     generateRandomFood(150);
+    spawnIntroButtonDots();
   };
 
   p.mousePressed = function () {
@@ -170,8 +172,10 @@ new p5(function (p) {
 
     if (window.gameState === "Chapter1complete" ||
       window.gameState === "Chapter2complete") {
+      drawFoods();
       snake.update();
       snake.show();
+      checkEating();
     }
 
     if (window.gameState === "Chapter3complete") {
@@ -200,6 +204,7 @@ new p5(function (p) {
   function Chapter1() {
     if (!window.Chapter1generated) {
       window.foods = [];
+      removeIntroTitle();
       generateTextPoints("Are we alone here?", 0);
       generateRandomFood(80);
       window.Chapter1generated = true;
@@ -239,7 +244,157 @@ new p5(function (p) {
     drawFoods();
   }
 
-  // ─── FOOD GENERATION ─────────────────────────────────
+  // ─── INTRO TITLE ─────────────────────────────────────
+
+  function showIntroTitle() {
+    if (document.getElementById('intro-title')) return;
+    var el = document.createElement('div');
+    el.id = 'intro-title';
+    el.textContent = 'THE VOID';
+    el.style.cssText = [
+      'position:fixed',
+      'top:20%',
+      'transform:translate(-50%,-50%)',
+      'font-family:"MyFont",sans-serif',
+      'font-size:clamp(72px,14vw,160px)',
+      'letter-spacing:0.12em',
+      'color:rgba(0, 255, 145, 0.92)',
+      'pointer-events:none',
+      'z-index:5',
+      'user-select:none',
+      'white-space:nowrap',
+      'text-align:center',
+      'width:100%',
+      'text-shadow:0 0 60px rgba(0,200,255,0.35)',
+      'animation:pulse 5.5s ease-in-out infinite'
+    ].join(';');
+    document.body.appendChild(el);
+  }
+
+
+  function removeIntroTitle() {
+    var el = document.getElementById('intro-title');
+    if (el && el.parentNode) el.parentNode.removeChild(el);
+  }
+
+  function triggerWelcomeScreen() {
+    // Clear all intro button dots (text + border) immediately
+    window.foods = window.foods.filter(function(f) { return !f.isIntroBtn; });
+    introBtnDotsLeft = 0;
+
+    var welcome = document.getElementById('welcome');
+    var welcomeText = document.getElementById('welcome-text');
+    if (!welcome || !welcomeText) return;
+
+    // Hide the LET'S GO button entirely — no button needed
+    var startBtn1 = document.getElementById('start-btn1');
+    if (startBtn1) startBtn1.style.display = 'none';
+
+    var fullText = 'WELCOME, STRANGER';
+    var idx = 0;
+
+    welcome.style.display = 'flex';
+    welcome.style.zIndex = '500';
+    welcomeText.textContent = '';
+
+    requestAnimationFrame(function() {
+      requestAnimationFrame(function() { welcome.classList.add('show'); });
+    });
+
+    // Letter-by-letter typewriter
+    var typeInterval = setInterval(function() {
+      if (idx < fullText.length) {
+        welcomeText.textContent = fullText.slice(0, idx + 1);
+        idx++;
+      } else {
+        clearInterval(typeInterval);
+      }
+    }, 80);
+
+    // Auto-advance to Chapter 1 after 5 seconds
+    setTimeout(function() {
+      welcome.classList.remove('show');
+      welcome.style.display = '';
+      welcome.style.zIndex = '';
+      if (startBtn1) startBtn1.style.display = '';
+
+      window.gameState = 'Chapter1';
+      window.foods = [];
+      window.Chapter1generated = false;
+      if (window.resetSnake) window.resetSnake();
+    }, 3000);
+  }
+
+
+
+  var introBtnDotsLeft = 0;
+  var introBtnSpawned = false;
+
+  function spawnIntroButtonDots() {
+    // Hide the HTML button — dots replace it
+    var uiEl = document.getElementById('ui');
+    if (uiEl) uiEl.style.display = 'none';
+
+    introBtnDotsLeft = 0;
+    introBtnSpawned = false;
+
+    var label = "LET'S START";
+    var btnW = 480, btnH = 110;
+    var cx = p.width / 2;
+    var cy = p.height * 0.62;
+    var x0 = cx - btnW / 2;
+    var y0 = cy - btnH / 2;
+
+    var off = document.createElement('canvas');
+    off.width = p.width;
+    off.height = p.height;
+    var ctx = off.getContext('2d');
+    ctx.fillStyle = 'black';
+    ctx.fillRect(0, 0, off.width, off.height);
+
+    // Draw button label text
+    ctx.fillStyle = 'white';
+    ctx.font = 'bold 64px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, cx, cy);
+
+    var pixels = ctx.getImageData(0, 0, p.width, p.height).data;
+    var step = 8;
+
+    // Stagger spawn so dots flicker in over time
+    var allDots = [];
+
+    // Text dots
+    for (var x = 0; x < p.width; x += step) {
+      for (var y = 0; y < p.height; y += step) {
+        var i4 = (x + y * p.width) * 4;
+        if (pixels[i4] > 50) {
+          allDots.push({ pos: p.createVector(x, y), isIntroBtn: true, isText: true, flickerOffset: Math.random() * 100 });
+        }
+      }
+    }
+
+    // Shuffle so they flicker in randomly
+    for (var s = allDots.length - 1; s > 0; s--) {
+      var j = Math.floor(Math.random() * (s + 1));
+      var tmp = allDots[s]; allDots[s] = allDots[j]; allDots[j] = tmp;
+    }
+
+    // Stagger adding them to window.foods over ~1.5s
+    var delay = 1500 / allDots.length;
+    var spawnStart = performance.now();
+    allDots.forEach(function(dot, idx) {
+      setTimeout(function() {
+        dot.spawnedAt = performance.now();
+        window.foods.push(dot);
+        introBtnDotsLeft++;
+        if (idx === allDots.length - 1) introBtnSpawned = true;
+      }, idx * delay);
+    });
+  }
+
+
 
   function generateTextPoints(txt, scatter) {
     scatter = scatter || 0;
@@ -301,6 +456,18 @@ new p5(function (p) {
         p.fill(0, 255, 150);
       } else if (f.choice === 'no') {
         p.fill(0, 200, 255);
+      } else if (f.isNextChapter) {
+        var age = (performance.now() - (f.spawnedAt || 0)) / 1000;
+        var solidT = Math.min(1, Math.max(0, (age - 1) / 0.6)); // 0→1 over 0.6s after 1s
+        var flicker = 80 + 175 * Math.sin((p.frameCount * 0.018) + (f.flickerOffset || 0));
+        var alpha = flicker * (1 - solidT) + 230 * solidT;
+        p.fill(0, 255, 150, alpha);
+      } else if (f.isIntroBtn) {
+        var age = (performance.now() - (f.spawnedAt || 0)) / 1000;
+        var solidT = Math.min(1, Math.max(0, (age - 1) / 0.6));
+        var introFlicker = 100 + 155 * Math.sin((p.frameCount * 0.025) + (f.flickerOffset || 0));
+        var alpha = introFlicker * (1 - solidT) + 230 * solidT;
+        p.fill(255, 71, 227, alpha);
       } else if (f.isText) {
         p.fill(255);
       } else {
@@ -328,9 +495,32 @@ new p5(function (p) {
       var d = p.dist(snake.head.x, snake.head.y, window.foods[i].pos.x, window.foods[i].pos.y);
       if (d < snake.size) {
         var wasText = window.foods[i].isText;
+        var isNextChapter = window.foods[i].isNextChapter;
+        var isIntroBtn = window.foods[i].isIntroBtn;
         var choice = window.foods[i].choice;
         window.foods.splice(i, 1);
         eaten++;
+
+        // Intro button dots — trigger welcome when all eaten
+        if (isIntroBtn) {
+          introBtnDotsLeft--;
+          if (introBtnSpawned && introBtnDotsLeft <= 0) {
+            introBtnDotsLeft = 0;
+            triggerWelcomeScreen();
+            return;
+          }
+        }
+
+        if (isNextChapter) {
+          nextChapterDotsLeft--;
+          if (nextChapterDotsLeft <= 0 && nextChapterCallback) {
+            var cb = nextChapterCallback;
+            nextChapterCallback = null;
+            nextChapterDotsLeft = 0;
+            cb();
+            return;
+          }
+        }
 
         if (decisionActive) {
           if (choice === 'yes') decisionYesLeft--;
@@ -365,7 +555,7 @@ new p5(function (p) {
           }
         }
 
-        if (!wasText &&
+        if (!wasText && !isIntroBtn &&
           window.gameState !== "Chapter1complete" &&
           window.gameState !== "Chapter2complete" &&
           window.gameState !== "Chapter3complete") {
@@ -626,62 +816,87 @@ new p5(function (p) {
   function showChapterEndUI(bottomText, btnLabel, onNext) {
     if (document.getElementById("chapter-end-overlay")) return;
 
+    // Register the onNext callback globally so eating logic can call it
+    window._chapterNextCallback = null;
+
     var overlay = document.createElement("div");
     overlay.id = "chapter-end-overlay";
-    overlay.innerHTML =
-      '<div class="chapter-end-text"></div>' +
-      '<div class="btn-wrap chapter-end-btn-wrap" style="opacity:0;transition:opacity 0.5s ease;">' +
-      '<canvas class="dots-canvas chapter-end-dots-canvas"></canvas>' +
-      '<button class="chapter-end-btn">' + btnLabel + '</button>' +
-      '</div>';
+    overlay.innerHTML = '<div class="chapter-end-text"></div>';
     document.body.appendChild(overlay);
 
     requestAnimationFrame(function () {
       requestAnimationFrame(function () {
         overlay.classList.add("visible");
 
-        // ── Typewriter effect ──
+        // ── Typewriter — letter by letter, no blink ──
         var textEl = overlay.querySelector(".chapter-end-text");
-        var btnWrap = overlay.querySelector(".chapter-end-btn-wrap");
-        var dotCanvas = overlay.querySelector(".chapter-end-dots-canvas");
-        var chars = bottomText.split('');
         var idx = 0;
-        var cursor = '\u258C'; // block cursor character
-
-        textEl.textContent = cursor;
 
         var typeInterval = setInterval(function () {
-          if (idx < chars.length) {
-            textEl.textContent = bottomText.slice(0, idx + 1) + cursor;
+          if (idx < bottomText.length) {
+            textEl.textContent = bottomText.slice(0, idx + 1);
             idx++;
           } else {
-            // Blink cursor 3 times then remove it and show button
-            textEl.textContent = bottomText + cursor;
-            var blinks = 0;
-            var blinkInterval = setInterval(function () {
-              textEl.textContent = (blinks % 2 === 0)
-                ? bottomText
-                : bottomText + cursor;
-              blinks++;
-              if (blinks >= 6) {
-                clearInterval(blinkInterval);
-                textEl.textContent = bottomText;
-                // Reveal the button
-                btnWrap.style.opacity = '1';
-                if (dotCanvas && btnWrap) {
-                  dotCanvas.width = btnWrap.offsetWidth;
-                  dotCanvas.height = btnWrap.offsetHeight;
-                  drawDotBorderLocal(dotCanvas, "rgba(0, 251, 255, 0.77)");
-                }
-              }
-            }, 300);
             clearInterval(typeInterval);
+            // After typing finishes, spawn the edible dot label
+            setTimeout(function () {
+              spawnNextChapterDots(onNext);
+            }, 400);
           }
-        }, 55); // ms per character
+        }, 55);
       });
     });
+  }
 
-    overlay.querySelector(".chapter-end-btn").addEventListener("click", onNext);
+  // ─── Spawn "NEXT CHAPTER →" as edible p5 dot-text ────
+
+  var nextChapterDotsLeft = 0;
+  var nextChapterCallback = null;
+
+  function spawnNextChapterDots(onNext) {
+    nextChapterDotsLeft = 0;
+    nextChapterCallback = onNext;
+
+    var labelText = 'NEXT CHAPTER';
+    var off = document.createElement('canvas');
+    off.width = p.width;
+    off.height = p.height;
+    var ctx = off.getContext('2d');
+    ctx.fillStyle = 'black';
+    ctx.fillRect(0, 0, off.width, off.height);
+    ctx.fillStyle = 'white';
+    ctx.font = 'bold 72px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(labelText, p.width / 2, p.height * 0.78);
+
+    var pixels = ctx.getImageData(0, 0, off.width, off.height).data;
+    var step = 9;
+    var allDots = [];
+    for (var x = 0; x < p.width; x += step) {
+      for (var y = 0; y < p.height; y += step) {
+        var i4 = (x + y * p.width) * 4;
+        if (pixels[i4] > 50) {
+          allDots.push(p.createVector(x, y));
+          nextChapterDotsLeft++;
+        }
+      }
+    }
+
+    // Stagger dots appearing over ~2 seconds with individual flicker offsets
+    var totalDots = allDots.length;
+    allDots.forEach(function (pos, i) {
+      var delay = (i / totalDots) * 2000 + p.random(0, 400);
+      setTimeout(function () {
+        window.foods.push({
+          pos: pos,
+          isText: true,
+          isNextChapter: true,
+          flickerOffset: p.random(1000),
+          spawnedAt: performance.now()
+        });
+      }, delay);
+    });
   }
 
   function removeChapterEndUI() {
@@ -690,6 +905,8 @@ new p5(function (p) {
       el.classList.remove("visible");
       setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 600);
     }
+    nextChapterDotsLeft = 0;
+    nextChapterCallback = null;
   }
 
   // ─── DECISION UI ─────────────────────────────────────
@@ -780,38 +997,27 @@ new p5(function (p) {
         overlay.classList.add("visible");
 
         var lineEls = overlay.querySelectorAll(".ending-line");
-        var cursor = '\u258C';
         var CHAR_MS = 55;
         var PAUSE_BETWEEN = 500; // ms gap between lines
 
-        // Type lines one after another
+        // Type lines one after another — no cursor, just letter-by-letter reveal
         function typeLine(lineIdx) {
           if (lineIdx >= lines.length) return;
 
           var el = lineEls[lineIdx];
           var text = lines[lineIdx];
           var idx = 0;
-          el.textContent = cursor;
+          el.textContent = '';
 
           var typeInterval = setInterval(function () {
             if (idx < text.length) {
-              el.textContent = text.slice(0, idx + 1) + cursor;
+              el.textContent = text.slice(0, idx + 1);
               idx++;
             } else {
-              // Blink cursor twice then move to next line
-              var blinks = 0;
-              var blinkInterval = setInterval(function () {
-                el.textContent = (blinks % 2 === 0) ? text : text + cursor;
-                blinks++;
-                if (blinks >= 4) {
-                  clearInterval(blinkInterval);
-                  el.textContent = text;
-                  setTimeout(function () {
-                    typeLine(lineIdx + 1);
-                  }, PAUSE_BETWEEN);
-                }
-              }, 280);
               clearInterval(typeInterval);
+              setTimeout(function () {
+                typeLine(lineIdx + 1);
+              }, PAUSE_BETWEEN);
             }
           }, CHAR_MS);
         }
@@ -822,7 +1028,7 @@ new p5(function (p) {
 
     // Calculate total type time then add buffer before transitioning
     var totalChars = lines.reduce(function (sum, l) { return sum + l.length; }, 0);
-    var estimatedMs = totalChars * 55 + lines.length * (4 * 280 + 500) + 1500;
+    var estimatedMs = totalChars * 55 + lines.length * 500 + 1500;
 
     setTimeout(function () {
       overlay.style.transition = "opacity 1s ease";
@@ -1003,11 +1209,12 @@ new p5(function (p) {
             snake.speed = 2.5;
             var ui = document.getElementById('ui');
             var welcome = document.getElementById('welcome');
-            if (ui) ui.style.display = '';
-            if (welcome) welcome.classList.remove('show');
+            if (ui) { ui.style.display = ''; ui.style.opacity = '1'; ui.style.pointerEvents = ''; }
+            if (welcome) { welcome.classList.remove('show'); welcome.style.display = ''; welcome.style.zIndex = ''; }
             window.gameState = 'intro';
-            generateTextPoints('THE VOID', 0);
+            showIntroTitle();
             generateRandomFood(150);
+            spawnIntroButtonDots();
           }, 600);
         });
       }, 200);
